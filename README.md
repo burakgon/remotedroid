@@ -56,9 +56,15 @@ npm run build    # dist/ → Android assets'e gömülür
 ```
 
 **Android sunucu (TV):**
+
+Gereksinim: **JDK 17–21** ve Android SDK (compileSdk 35, build-tools 35). Varsayılan `java`
+sürümünüz daha yeniyse `JAVA_HOME`'u 17–21 JDK'ya ayarlayın (Gradle 8.9 yeni JDK'larda çalışmaz).
+`local.properties` repoda yoktur; ilk açılışta `sdk.dir=/Android/SDK/yolu` ile oluşturun
+(veya `ANDROID_HOME` ayarlı olsun).
+
 ```bash
 cd server-android
-# JDK 21 ve Android SDK gerekir; gradlew JDK 21'i kullanır
+export JAVA_HOME="$(/usr/libexec/java_home -v 21)"   # macOS örneği; JDK 17–21 yeterli
 ./gradlew :app:testDebugUnitTest   # birim testler
 ./gradlew :app:assembleDebug       # APK (PWA otomatik gömülür)
 # Çıktı: app/build/outputs/apk/debug/app-debug.apk → TV'ye sideload
