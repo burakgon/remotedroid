@@ -16,6 +16,10 @@ dist/
 .vite/
 *.log
 
+# Üretilen: PWA, Android assets'e gömülür (kaynağı client-pwa/dist)
+server-android/app/src/main/assets/web/*
+!server-android/app/src/main/assets/web/.gitkeep
+
 # IDE / OS
 .idea/
 .DS_Store

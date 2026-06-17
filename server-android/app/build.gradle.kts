@@ -60,3 +60,10 @@ dependencies {
     implementation(libs.zxing.core)
     testImplementation(libs.junit)
 }
+
+// PWA build çıktısını (client-pwa/dist) APK assets/web içine kopyalar.
+val copyPwa = tasks.register<Copy>("copyPwa") {
+    from("$projectDir/../../client-pwa/dist")
+    into("$projectDir/src/main/assets/web")
+}
+tasks.named("preBuild") { dependsOn(copyPwa) }
