@@ -6,13 +6,13 @@
 </script>
 
 <div class="kb">
-  <label for="msg">Mesajını yaz</label>
-  <textarea id="msg" rows="2" bind:value placeholder="metni yaz, Gönder'e bas…"></textarea>
+  <label for="msg">Type a message</label>
+  <textarea id="msg" rows="2" bind:value placeholder="type text, press Send…"></textarea>
   <div class="row">
-    <button class="primary" onclick={() => send({ type: 'text', value })}>Gönder</button>
-    <button onclick={() => send({ type: 'submit' })}>Enter / Ara</button>
+    <button class="primary" onclick={() => send({ type: 'text', value })}>Send</button>
+    <button onclick={() => send({ type: 'submit' })}>Enter / Search</button>
     <button onclick={() => send({ type: 'backspace' })} aria-label="Backspace">⌫</button>
-    <button onclick={() => { value = ''; send({ type: 'clear' }); }}>Temizle</button>
+    <button onclick={() => { value = ''; send({ type: 'clear' }); }}>Clear</button>
   </div>
 </div>
 

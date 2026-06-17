@@ -5,9 +5,9 @@
 </script>
 
 <div class="vol">
-  <button onclick={() => send({ type: 'volume', dir: 'down' })} aria-label="Sesi azalt">🔉 −</button>
-  <button onclick={() => send({ type: 'mute' })} aria-label="Sessize al">🔇</button>
-  <button onclick={() => send({ type: 'volume', dir: 'up' })} aria-label="Sesi artır">🔊 +</button>
+  <button onclick={() => send({ type: 'volume', dir: 'down' })} aria-label="Volume down">🔉 −</button>
+  <button onclick={() => send({ type: 'mute' })} aria-label="Mute">🔇</button>
+  <button onclick={() => send({ type: 'volume', dir: 'up' })} aria-label="Volume up">🔊 +</button>
 </div>
 
 <style>

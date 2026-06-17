@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">RemoteDroid</string>
-    <string name="accessibility_description">RemoteDroid, telefonunuzdan gelen dokunma, kaydırma, ses ve metin komutlarını TV ekranına uygulamak için bu servisi kullanır. Yalnızca eşleşmiş kumandadan gelen komutları işler.</string>
+    <string name="accessibility_description">RemoteDroid uses this service to apply tap, scroll, volume and text commands from your phone to the TV screen. It only processes commands from the paired remote.</string>
 </resources>

@@ -1,1 +1,1 @@
-# RemoteDroid proguard kuralları (v1: minify kapalı, yer tutucu)
+# RemoteDroid proguard rules (v1: minify disabled, placeholder)

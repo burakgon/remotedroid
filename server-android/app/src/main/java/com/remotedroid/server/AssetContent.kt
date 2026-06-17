@@ -1,11 +1,11 @@
 package com.remotedroid.server
 
 /**
- * PWA statik dosya servisi yardımcıları (saf). İstek yolunu güvenli bir asset
- * yoluna indirger ve MIME tipini belirler.
+ * Pure helpers for serving the PWA's static files. Reduces a request path to a safe
+ * asset path and determines its MIME type.
  */
 object AssetContent {
-    /** `/` → index.html; sorgu/parça at; `..` ve `.` parçalarını ele (path traversal koruması). */
+    /** `/` → index.html; drop query/fragment; strip `..` and `.` segments (path-traversal protection). */
     fun normalize(path: String): String {
         val clean = path.substringBefore('?').substringBefore('#').trimStart('/')
         val safe = clean.split('/')

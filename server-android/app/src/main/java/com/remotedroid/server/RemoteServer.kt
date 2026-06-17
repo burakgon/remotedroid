@@ -23,8 +23,8 @@ import io.ktor.websocket.readText
 import java.io.IOException
 
 /**
- * PWA'yı (assets/web) statik sunan ve /ws üzerinden token'lı komut kanalı açan
- * gömülü Ktor CIO sunucusu. Komutları [CommandExecutor]'a iletir.
+ * Embedded Ktor CIO server that serves the PWA (assets/web) statically and opens a
+ * token-authenticated command channel at /ws. Forwards commands to [CommandExecutor].
  */
 class RemoteServer(
     private val port: Int,

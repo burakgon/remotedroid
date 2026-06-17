@@ -1,22 +1,22 @@
-# RemoteDroid — PWA Kumanda
+# RemoteDroid — PWA Remote
 
-TV'deki RemoteDroid sunucusunun sunduğu web kumanda. Touchpad-first; ses, gezinme ve
-tek-seferde metin gönderme. WebSocket/JSON ile TV'ye bağlanır.
+The web remote served by the RemoteDroid server on the TV. Touchpad-first; volume, navigation and
+send-text-at-once. Connects to the TV over WebSocket/JSON.
 
-## Geliştirme
+## Development
 
 ```bash
 npm install
-npm run dev      # tarayıcıda aç (geliştirme sunucusu)
-npm test         # birim testler (protokol, gesture, transport, klavye)
-npm run build    # dist/ üretir → Phase B'de Android assets/web'e kopyalanır
+npm run dev      # open in the browser (dev server)
+npm test         # unit tests (protocol, gesture, transport, keyboard)
+npm run build    # produces dist/ → copied into the Android assets/web in Phase B
 ```
 
-## Mimari
+## Architecture
 
-- `src/lib/protocol/messages.ts` — protokol tipleri + encode/decode (saf).
-- `src/lib/touchpad/gestureDetector.ts` — pointer → gesture (tap/move/scroll), saf & test edilmiş.
-- `src/lib/transport/connection.ts` — WebSocket + otomatik yeniden bağlanma.
-- `src/lib/ui/*` , `src/lib/touchpad/Touchpad.svelte` — arayüz bileşenleri.
+- `src/lib/protocol/messages.ts` — protocol types + encode/decode (pure).
+- `src/lib/touchpad/gestureDetector.ts` — pointer → gesture (tap/move/scroll), pure & tested.
+- `src/lib/transport/connection.ts` — WebSocket + auto-reconnect.
+- `src/lib/ui/*` , `src/lib/touchpad/Touchpad.svelte` — UI components.
 
-Protokol sözleşmesi: `../docs/superpowers/specs/2026-06-18-remotedroid-design.md` (bölüm 6).
+Protocol contract: `../docs/superpowers/specs/2026-06-18-remotedroid-design.md` (section 6).

@@ -5,7 +5,7 @@ import android.graphics.Color
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.qrcode.QRCodeWriter
 
-/** Verilen metni kareli QR Bitmap'ine çevirir (ZXing). */
+/** Renders the given text into a square QR Bitmap (ZXing). */
 fun qrBitmap(text: String, size: Int): Bitmap {
     val matrix = QRCodeWriter().encode(text, BarcodeFormat.QR_CODE, size, size)
     val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)

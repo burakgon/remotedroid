@@ -18,8 +18,8 @@ import com.remotedroid.server.RemoteServer
 import com.remotedroid.store.Settings
 
 /**
- * Gömülü sunucuyu ayakta tutan foreground service. Komutları, bağlı olan
- * Erişilebilirlik Servisi örneğine köprüler.
+ * Foreground service that keeps the embedded server alive. Bridges commands to the
+ * connected Accessibility Service instance.
  */
 class ServerService : Service() {
     private var server: RemoteServer? = null
@@ -66,8 +66,8 @@ class ServerService : Service() {
             )
         }
         return Notification.Builder(this, CHANNEL_ID)
-            .setContentTitle("RemoteDroid çalışıyor")
-            .setContentText("Kumanda bağlantısı için hazır")
+            .setContentTitle("RemoteDroid running")
+            .setContentText("Ready for remote connection")
             .setSmallIcon(android.R.drawable.stat_notify_sync)
             .setOngoing(true)
             .build()

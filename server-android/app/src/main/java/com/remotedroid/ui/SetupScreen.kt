@@ -51,24 +51,24 @@ fun SetupScreen() {
         Text("RemoteDroid", style = MaterialTheme.typography.headlineMedium)
         Spacer(Modifier.height(8.dp))
         Text(
-            "Telefonunuzun kamerasıyla QR'ı okutun, kumanda tarayıcıda açılır.",
+            "Scan the QR with your phone's camera; the remote opens in the browser.",
             textAlign = TextAlign.Center,
         )
         Spacer(Modifier.height(20.dp))
 
         val bmp = remember(url) { runCatching { qrBitmap(url, 600) }.getOrNull() }
         if (bmp != null) {
-            Image(bitmap = bmp.asImageBitmap(), contentDescription = "Eşleştirme QR kodu")
+            Image(bitmap = bmp.asImageBitmap(), contentDescription = "Pairing QR code")
         }
         Spacer(Modifier.height(8.dp))
         Text(url, textAlign = TextAlign.Center)
         Spacer(Modifier.height(24.dp))
 
         Button(onClick = { ServerService.start(context) }, modifier = Modifier.fillMaxWidth()) {
-            Text("Sunucuyu başlat")
+            Text("Start server")
         }
         OutlinedButton(onClick = { ServerService.stop(context) }, modifier = Modifier.fillMaxWidth()) {
-            Text("Durdur")
+            Text("Stop")
         }
         Spacer(Modifier.height(16.dp))
         Button(
@@ -80,17 +80,17 @@ fun SetupScreen() {
             },
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Text("Erişilebilirlik ayarlarını aç")
+            Text("Open accessibility settings")
         }
         OutlinedButton(
             onClick = { token = settings.regenerateToken() },
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Text("Token'ı yenile")
+            Text("Regenerate token")
         }
         Spacer(Modifier.height(20.dp))
         Text(
-            if (a11yOn) "Erişilebilirlik servisi: bağlı ✓" else "Erişilebilirlik servisi: kapalı — etkinleştirin",
+            if (a11yOn) "Accessibility service: connected ✓" else "Accessibility service: off — enable it",
             color = if (a11yOn) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
         )
     }

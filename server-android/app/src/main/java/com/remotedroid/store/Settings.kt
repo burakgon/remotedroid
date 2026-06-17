@@ -3,7 +3,7 @@ package com.remotedroid.store
 import android.content.Context
 import java.security.SecureRandom
 
-/** Token ve port kalıcılığı (SharedPreferences). Token ilk erişimde güvenli üretilir. */
+/** Token and port persistence (SharedPreferences). The token is securely generated on first access. */
 class Settings(context: Context) {
     private val prefs = context.getSharedPreferences("remotedroid", Context.MODE_PRIVATE)
 

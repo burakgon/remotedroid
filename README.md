@@ -2,87 +2,87 @@
 
 # RemoteDroid
 
-**Kumandası olmayan, düz Android (Android TV değil) çalışan TV'ler için touchpad-first uzaktan kumanda.**
-*A touchpad-first remote for plain-Android TVs — no root, no PC, no extra remote.*
+**A touchpad-first remote control for plain-Android (not Android TV) TVs that ship without a remote.**
+*No root, no PC, no extra remote.*
 
 </div>
 
 ---
 
-## Bu nedir?
+## What is this?
 
-Bazı TV'lerin içinde (örn. **Thomson Go Plus 32UE5M45**) Android TV değil, **dokunmatik bir Android tableti** gibi davranan gerçek Android vardır. Kumanda gelmez; her seferinde TV'nin yanına gidip dokunmak gerekir.
+Some TVs (e.g. the **Thomson Go Plus 32UE5M45**) run plain Android — not Android TV — and behave like a **touchscreen Android tablet** inside. They come without a remote, so every time you have to walk up to the TV and tap the screen yourself.
 
-**RemoteDroid** bunu çözer: TV'ye kurulan bir uygulama, telefonunuzun tarayıcısından açtığınız bir web kumandayı (PWA) sunar. Parmağınızla TV'de bir **imleç** gezdirir (laptop trackpad'i gibi), ses açar/kısar, klavyeyle yazı gönderirsiniz — hepsi yerel ağ üzerinden, **root gerektirmeden**, Android **Erişilebilirlik Servisi** ile.
+**RemoteDroid** fixes that: an app installed on the TV serves a web remote (a PWA) that you open from your phone's browser. You glide a **cursor** around the TV with your finger (like a laptop trackpad), raise and lower the volume, and type text to send — all over the local network, **without root**, via Android's **Accessibility Service**.
 
-## Nasıl çalışır?
+## How it works
 
 ```
- Telefon (tarayıcı / PWA)  ──ws://tv-ip:8080──►  TV (Android + RemoteDroid)
-   touchpad · ses · klavye      JSON komutları      Erişilebilirlik Servisi
-                                                     dispatchGesture / ACTION_SET_TEXT
+ Phone (browser / PWA)  ──ws://tv-ip:8080──►  TV (Android + RemoteDroid)
+   touchpad · volume · keyboard    JSON commands     Accessibility Service
+                                                      dispatchGesture / ACTION_SET_TEXT
 ```
 
-1. TV'deki uygulamayı açın, **Sunucuyu başlat** + **Erişilebilirlik servisini** etkinleştirin.
-2. Ekrandaki **QR'ı telefon kamerasıyla okutun** → kumanda tarayıcıda açılır (token'la otomatik bağlanır).
-3. Touchpad'le imleci sürün, tıklayın; ses/gezinme düğmeleri; klavye kutusuna yazıp **tek seferde** gönderin.
+1. Open the app on the TV, **Start the server** and enable the **Accessibility service**.
+2. **Scan the on-screen QR with your phone camera** → the remote opens in the browser (auto-connects with the token).
+3. Drag the cursor with the touchpad and tap; use the volume/navigation buttons; type into the keyboard box and send it **all at once**.
 
-## Özellikler
+## Features
 
-- **Touchpad-first:** göreli imleç (TV'de overlay), tek tık, iki parmak kaydırma.
-- **Ses:** aç / kıs / sessize.
-- **Klavye:** kutuya yaz → tüm metin tek seferde TV'deki alana (Enter/Ara dahil, Android 11+).
-- **Gezinme:** Home · Geri · Son uygulamalar.
-- **QR ile eşleştirme:** adres + token tek karede; sadece eşleşmiş cihaz kontrol eder.
-- **Root yok, ek cihaz yok.**
+- **Touchpad-first:** relative cursor (overlay on the TV), single tap, two-finger scroll.
+- **Volume:** up / down / mute.
+- **Keyboard:** type into the box → the whole text lands in the TV's field at once (Enter/Search included, Android 11+).
+- **Navigation:** Home · Back · Recents.
+- **QR pairing:** address + token in a single code; only the paired device can control the TV.
+- **No root, no extra device.**
 
-## Proje yapısı
+## Project layout
 
-| Dizin | İçerik |
+| Directory | Contents |
 |---|---|
-| `client-pwa/` | Web kumanda — Svelte + TypeScript + Vite (TV tarafından sunulur) |
-| `server-android/` | TV uygulaması — Kotlin, Compose, Ktor (CIO), Erişilebilirlik Servisi |
-| `docs/superpowers/` | Tasarım dokümanı (spec) ve uygulama planları |
+| `client-pwa/` | Web remote — Svelte + TypeScript + Vite (served by the TV) |
+| `server-android/` | TV app — Kotlin, Compose, Ktor (CIO), Accessibility Service |
+| `docs/superpowers/` | Design spec and implementation plans |
 
-## Derleme & çalıştırma
+## Build & run
 
-**PWA (kumanda):**
+**PWA (remote):**
 ```bash
 cd client-pwa
 npm install
-npm run dev      # geliştirme
-npm test         # birim testler
-npm run build    # dist/ → Android assets'e gömülür
+npm run dev      # development
+npm test         # unit tests
+npm run build    # dist/ → embedded into the Android assets
 ```
 
-**Android sunucu (TV):**
+**Android server (TV):**
 
-Gereksinim: **JDK 17–21** ve Android SDK (compileSdk 35, build-tools 35). Varsayılan `java`
-sürümünüz daha yeniyse `JAVA_HOME`'u 17–21 JDK'ya ayarlayın (Gradle 8.9 yeni JDK'larda çalışmaz).
-`local.properties` repoda yoktur; ilk açılışta `sdk.dir=/Android/SDK/yolu` ile oluşturun
-(veya `ANDROID_HOME` ayarlı olsun).
+Requirements: **JDK 17–21** and the Android SDK (compileSdk 35, build-tools 35). If your default `java`
+is newer, point `JAVA_HOME` at a 17–21 JDK (Gradle 8.9 does not run on newer JDKs).
+`local.properties` is not in the repo; create it on first open with `sdk.dir=/path/to/Android/SDK`
+(or have `ANDROID_HOME` set).
 
 ```bash
 cd server-android
-export JAVA_HOME="$(/usr/libexec/java_home -v 21)"   # macOS örneği; JDK 17–21 yeterli
-./gradlew :app:testDebugUnitTest   # birim testler
-./gradlew :app:assembleDebug       # APK (PWA otomatik gömülür)
-# Çıktı: app/build/outputs/apk/debug/app-debug.apk → TV'ye sideload
+export JAVA_HOME="$(/usr/libexec/java_home -v 21)"   # macOS example; any JDK 17–21 works
+./gradlew :app:testDebugUnitTest   # unit tests
+./gradlew :app:assembleDebug       # APK (PWA embedded automatically)
+# Output: app/build/outputs/apk/debug/app-debug.apk → sideload to the TV
 ```
 
-## Sınırlar
+## Limitations
 
-- Kapalı TV'yi **açamaz** (WiFi üzerinden uyandırma yolu yok); uyutabilir.
-- Yalnızca aynı **yerel ağ**; `http` üzerinden (token korumalı). İnternet erişimi yok.
-- **Ekran yansıtma yok** — TV'ye bakarak kullanılır (kör touchpad).
-- Erişilebilirlik metni en iyi arama/URL kutularında çalışır.
+- It **can't power on** a TV that's off (no Wake-on-WiFi path); it can put one to sleep.
+- Same **local network** only; over `http` (token-protected). No internet access.
+- **No screen mirroring** — you use it while looking at the TV (blind touchpad).
+- Accessibility text injection works best in search/URL boxes.
 
-## Lisans
+## License
 
 [Apache-2.0](./LICENSE).
 
 ---
 
 <div align="center">
-<sub>Tasarım, plan ve testler <code>docs/superpowers/</code> altında.</sub>
+<sub>Design, plans and tests live under <code>docs/superpowers/</code>.</sub>
 </div>

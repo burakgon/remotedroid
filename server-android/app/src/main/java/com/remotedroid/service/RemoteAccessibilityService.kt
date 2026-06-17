@@ -24,9 +24,9 @@ import com.remotedroid.protocol.ServerMessage
 import com.remotedroid.ui.CursorView
 
 /**
- * Komutları sisteme uygulayan Erişilebilirlik Servisi: imleç overlay'i + dispatchGesture
- * (dokunma/kaydırma), ses, metin (ACTION_SET_TEXT / ACTION_IME_ENTER) ve genel eylemler.
- * Sunucu thread'inden gelen komutlar ana thread'e post edilir.
+ * Accessibility Service that applies commands to the system: cursor overlay + dispatchGesture
+ * (tap/scroll), volume, text (ACTION_SET_TEXT / ACTION_IME_ENTER) and global actions.
+ * Commands arriving from the server thread are posted to the main thread.
  */
 class RemoteAccessibilityService : AccessibilityService(), CommandExecutor {
 

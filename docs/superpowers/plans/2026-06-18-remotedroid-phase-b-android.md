@@ -1,45 +1,45 @@
-# RemoteDroid — Phase B: Android Sunucu (TV) — Implementation Plan
+# RemoteDroid — Phase B: Android Server (TV) — Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development or superpowers:executing-plans. Steps use checkbox (`- [ ]`) syntax.
 
-**Goal:** TV'de çalışan, PWA kumandayı sunan ve gelen komutları Erişilebilirlik Servisi üzerinden sisteme uygulayan (imleç + dokunma + ses + metin + gezinme) native Android uygulamasını kurmak; QR ile eşleştirme.
+**Goal:** Build a native Android app that runs on the TV, serves the PWA remote, and applies incoming commands to the system through the Accessibility Service (cursor + tap + volume + text + navigation); pairing via QR.
 
-**Architecture:** Tek Android uygulaması. Ktor (CIO) gömülü sunucu `assets/web`'teki PWA'yı statik sunar ve `/ws` üzerinden token'lı WebSocket açar. Gelen `ClientMessage`'lar bir `CommandExecutor` arayüzüne gider; bunu `RemoteAccessibilityService` uygular (`dispatchGesture`, global eylemler, `AudioManager`, `ACTION_SET_TEXT`/`ACTION_IME_ENTER`). Saf mantık (protokol, imleç matematiği, token doğrulama, asset MIME) JVM'de birim test edilir; enjeksiyon gerçek cihazda doğrulanır.
+**Architecture:** A single Android app. A Ktor (CIO) embedded server statically serves the PWA from `assets/web` and opens a token-authenticated WebSocket on `/ws`. Incoming `ClientMessage`s are routed to a `CommandExecutor` interface, which is implemented by `RemoteAccessibilityService` (`dispatchGesture`, global actions, `AudioManager`, `ACTION_SET_TEXT`/`ACTION_IME_ENTER`). Pure logic (protocol, cursor math, token validation, asset MIME) is unit tested on the JVM; injection is verified on a real device.
 
 **Tech Stack:** Kotlin 2.0.21, AGP 8.7.2, Gradle 8.9 (wrapper), JDK 21, compileSdk 35 / minSdk 26 / targetSdk 35, Jetpack Compose (BOM 2024.09.x), Ktor 3.x (CIO), kotlinx.serialization 1.7.x, ZXing core (QR).
 
 ## Global Constraints
 
-- `JAVA_HOME` = `/opt/homebrew/opt/openjdk@21`; `gradle.properties`'te `org.gradle.java.home` aynı yola sabitlenir (PATH'teki JDK 26 Gradle'ı kırar).
-- Protokol `v=1`, mesaj şekilleri TS `messages.ts` + spec bölüm 6 ile **birebir** (JSON `type` discriminator).
-- Erişilebilirlik servisi izinleri ve overlay kullanıcı tarafından elle etkinleştirilir; uygulama yönlendirir.
-- minSdk 26; `ACTION_IME_ENTER` yalnızca API 30+ (cihaz Android 11+ → mevcut).
-- DRY / YAGNI / TDD (saf mantıkta) / sık commit.
+- `JAVA_HOME` = `/opt/homebrew/opt/openjdk@21`; `org.gradle.java.home` in `gradle.properties` is pinned to the same path (JDK 26 on the PATH breaks Gradle).
+- Protocol `v=1`, message shapes match the TS `messages.ts` + spec section 6 **exactly** (JSON `type` discriminator).
+- Accessibility service permissions and the overlay are enabled manually by the user; the app guides them there.
+- minSdk 26; `ACTION_IME_ENTER` is only available on API 30+ (device on Android 11+ → available).
+- DRY / YAGNI / TDD (for pure logic) / frequent commits.
 
 ---
 
-## Toolchain Önkoşulu (Task 0)
+## Toolchain Prerequisite (Task 0)
 
-- [ ] **android-35 + build-tools;35.0.0 kur (lisans kabul):**
+- [ ] **Install android-35 + build-tools;35.0.0 (accept licenses):**
 ```bash
 yes | "$HOME/Library/Android/sdk/cmdline-tools/latest/bin/sdkmanager" \
   --sdk_root="$HOME/Library/Android/sdk" "platforms;android-35" "build-tools;35.0.0"
 ```
-- [ ] **Gradle bootstrap (wrapper üretmek için):** `brew install gradle`
-- [ ] **Wrapper'ı 8.9'a sabitle:** proje oluşturulduktan sonra
+- [ ] **Gradle bootstrap (to generate the wrapper):** `brew install gradle`
+- [ ] **Pin the wrapper to 8.9:** after the project is created,
   `JAVA_HOME=/opt/homebrew/opt/openjdk@21 gradle wrapper --gradle-version 8.9 --distribution-type bin`
 
 ---
 
-## Dosya Yapısı
+## File Structure
 
 ```
 server-android/
 ├── settings.gradle.kts
-├── build.gradle.kts                  # köke AGP/Kotlin plugin sürümleri
+├── build.gradle.kts                  # AGP/Kotlin plugin versions at the root
 ├── gradle.properties                 # org.gradle.java.home, AndroidX, JVM args
 ├── local.properties                  # sdk.dir (git-ignored)
-├── gradle/libs.versions.toml         # sürüm kataloğu
+├── gradle/libs.versions.toml         # version catalog
 ├── gradlew / gradle/wrapper/...       # wrapper
 └── app/
     ├── build.gradle.kts
@@ -47,21 +47,21 @@ server-android/
     └── src/
         ├── main/
         │   ├── AndroidManifest.xml
-        │   ├── assets/web/.gitkeep    # PWA dist buraya kopyalanır
+        │   ├── assets/web/.gitkeep    # PWA dist is copied here
         │   ├── res/xml/accessibility_service_config.xml
         │   ├── res/values/strings.xml
         │   └── java/com/remotedroid/
         │       ├── protocol/Messages.kt        # sealed ClientMessage/ServerMessage (+Json)
-        │       ├── input/Cursor.kt             # saf imleç matematiği
-        │       ├── input/CommandExecutor.kt    # arayüz
-        │       ├── server/AssetContent.kt      # path→MIME (saf)
-        │       ├── server/Auth.kt              # token doğrulama (saf)
+        │       ├── input/Cursor.kt             # pure cursor math
+        │       ├── input/CommandExecutor.kt    # interface
+        │       ├── server/AssetContent.kt      # path→MIME (pure)
+        │       ├── server/Auth.kt              # token validation (pure)
         │       ├── server/RemoteServer.kt      # Ktor CIO: static + /ws
         │       ├── service/RemoteAccessibilityService.kt  # executor impl + overlay
         │       ├── service/ServerService.kt    # foreground service
-        │       ├── store/Settings.kt           # token + port saklama
+        │       ├── store/Settings.kt           # token + port storage
         │       └── ui/MainActivity.kt + SetupScreen.kt + Qr.kt
-        └── test/java/com/remotedroid/          # JVM birim testleri
+        └── test/java/com/remotedroid/          # JVM unit tests
             ├── MessagesTest.kt
             ├── CursorTest.kt
             ├── AuthTest.kt
@@ -70,33 +70,33 @@ server-android/
 
 ---
 
-### Task 1: Gradle/Android iskeleti (boş uygulama derlenir + JVM test çalışır)
+### Task 1: Gradle/Android skeleton (empty app compiles + JVM tests run)
 
-**Files:** settings/build/gradle.properties/libs.versions.toml/app build + Manifest + MainActivity (boş Compose) + bir trivial JVM test.
+**Files:** settings/build/gradle.properties/libs.versions.toml/app build + Manifest + MainActivity (empty Compose) + one trivial JVM test.
 
-**Interfaces:** Produces — `./gradlew :app:assembleDebug` ve `./gradlew :app:testDebugUnitTest` çalışır.
+**Interfaces:** Produces — `./gradlew :app:assembleDebug` and `./gradlew :app:testDebugUnitTest` run.
 
-- [ ] **Step 1:** `gradle/libs.versions.toml` sürüm kataloğu (agp 8.7.2, kotlin 2.0.21, ktor 3.0.3, serialization 1.7.3, composeBom 2024.09.03, zxing-core 3.5.3).
-- [ ] **Step 2:** kök `build.gradle.kts` (plugins apply false), `settings.gradle.kts` (repos), `gradle.properties` (`org.gradle.java.home=/opt/homebrew/opt/openjdk@21`, `android.useAndroidX=true`, `org.gradle.jvmargs=-Xmx2g`).
+- [ ] **Step 1:** `gradle/libs.versions.toml` version catalog (agp 8.7.2, kotlin 2.0.21, ktor 3.0.3, serialization 1.7.3, composeBom 2024.09.03, zxing-core 3.5.3).
+- [ ] **Step 2:** root `build.gradle.kts` (plugins apply false), `settings.gradle.kts` (repos), `gradle.properties` (`org.gradle.java.home=/opt/homebrew/opt/openjdk@21`, `android.useAndroidX=true`, `org.gradle.jvmargs=-Xmx2g`).
 - [ ] **Step 3:** `app/build.gradle.kts` (android plugin, kotlin, kotlin.plugin.compose, serialization; compileSdk 35, minSdk 26, targetSdk 35; compose buildFeature; deps: compose bom+ui+material3+activity-compose, ktor-server-core/cio/websockets, serialization-json, zxing core).
 - [ ] **Step 4:** `AndroidManifest.xml` (application + MainActivity launcher), `MainActivity.kt` (Compose `setContent { Text("RemoteDroid") }`), `res/values/strings.xml`.
 - [ ] **Step 5:** trivial JVM test `class SmokeTest { @Test fun ok() = assertEquals(2, 1+1) }`.
-- [ ] **Step 6:** wrapper üret (Task 0), `./gradlew :app:assembleDebug :app:testDebugUnitTest` → BUILD SUCCESSFUL.
+- [ ] **Step 6:** generate the wrapper (Task 0), `./gradlew :app:assembleDebug :app:testDebugUnitTest` → BUILD SUCCESSFUL.
 - [ ] **Step 7:** Commit `feat(android): gradle skeleton with compose + ktor deps`.
 
 ---
 
-### Task 2: Protokol modelleri (Kotlin, kotlinx.serialization, TDD)
+### Task 2: Protocol models (Kotlin, kotlinx.serialization, TDD)
 
 **Files:** `protocol/Messages.kt`, test `MessagesTest.kt`.
 
 **Interfaces:** Produces —
-- `sealed interface ClientMessage` alt tipleri: `Hello(token,client,v)`, `Move(dx:Double,dy:Double)`, `Tap`, `LongPress`, `DragStart`, `DragMove(dx,dy)`, `DragEnd`, `Scroll(dx,dy)`, `Volume(dir:String)`, `Mute`, `Text(value:String)`, `Submit`, `Backspace`, `Clear`, `Global(action:String)`, `Ping` — her biri `@SerialName("...")` ile TS string'ine eşli.
+- `sealed interface ClientMessage` subtypes: `Hello(token,client,v)`, `Move(dx:Double,dy:Double)`, `Tap`, `LongPress`, `DragStart`, `DragMove(dx,dy)`, `DragEnd`, `Scroll(dx,dy)`, `Volume(dir:String)`, `Mute`, `Text(value:String)`, `Submit`, `Backspace`, `Clear`, `Global(action:String)`, `Ping` — each mapped to its TS string via `@SerialName("...")`.
 - `sealed interface ServerMessage`: `Welcome(screen:Screen,android:Int,features:Features)`, `ErrorMsg(code,message?)`, `Status(...)`, `Pong`.
 - `val RdJson = Json { classDiscriminator = "type"; ignoreUnknownKeys = true; encodeDefaults = true }`
 - `fun decodeClient(s:String): ClientMessage`, `fun encodeServer(m:ServerMessage): String`.
 
-- [ ] **Step 1: Başarısız test**
+- [ ] **Step 1: Failing test**
 ```kotlin
 class MessagesTest {
   @Test fun decodesMove() {
@@ -116,23 +116,23 @@ class MessagesTest {
   }
 }
 ```
-- [ ] **Step 2:** `./gradlew :app:testDebugUnitTest --tests "*MessagesTest"` → FAIL (derlenmez).
-- [ ] **Step 3:** `Messages.kt` implementasyonu (sealed interface + data class/data object + Json). No-field mesajlar `data object`.
+- [ ] **Step 2:** `./gradlew :app:testDebugUnitTest --tests "*MessagesTest"` → FAIL (does not compile).
+- [ ] **Step 3:** `Messages.kt` implementation (sealed interface + data class/data object + Json). No-field messages are `data object`.
 - [ ] **Step 4:** test → PASS.
 - [ ] **Step 5:** Commit `feat(android): protocol models mirroring the PWA contract`.
 
 ---
 
-### Task 3: İmleç matematiği (saf Kotlin, TDD)
+### Task 3: Cursor math (pure Kotlin, TDD)
 
 **Files:** `input/Cursor.kt`, test `CursorTest.kt`.
 
 **Interfaces:** Produces —
 - `class Cursor(var x: Float, var y: Float, val width: Int, val height: Int, var sensitivity: Float = 1.5f)`
-  - `fun move(dx: Float, dy: Float)` → `x,y`'yi `sensitivity` ile güncelle, `[0,width-1]×[0,height-1]`'e kıstır.
-  - `fun center()` → ekran ortasına al.
+  - `fun move(dx: Float, dy: Float)` → update `x,y` by `sensitivity`, clamp to `[0,width-1]×[0,height-1]`.
+  - `fun center()` → move to the center of the screen.
 
-- [ ] **Step 1: Başarısız test**
+- [ ] **Step 1: Failing test**
 ```kotlin
 class CursorTest {
   @Test fun movesScaledBySensitivity() {
@@ -150,19 +150,19 @@ class CursorTest {
 
 ---
 
-### Task 4: Sunucu yardımcıları — Auth + AssetContent (saf, TDD)
+### Task 4: Server helpers — Auth + AssetContent (pure, TDD)
 
 **Files:** `server/Auth.kt`, `server/AssetContent.kt`, tests `AuthTest.kt`, `AssetContentTest.kt`.
 
 **Interfaces:** Produces —
-- `object Auth { fun isValid(expected: String, provided: String?): Boolean }` (sabit-zamanlı eşitlik; null/boş reddet).
-- `object AssetContent { fun mimeFor(path: String): String; fun normalize(path: String): String }` (`/`→`index.html`, `..` temizle; `.js→text/javascript`, `.css→text/css`, `.html→text/html`, `.webmanifest→application/manifest+json`, vs.).
+- `object Auth { fun isValid(expected: String, provided: String?): Boolean }` (constant-time equality; reject null/empty).
+- `object AssetContent { fun mimeFor(path: String): String; fun normalize(path: String): String }` (`/`→`index.html`, strip `..`; `.js→text/javascript`, `.css→text/css`, `.html→text/html`, `.webmanifest→application/manifest+json`, etc.).
 
-- [ ] **Step 1–5:** Auth (eşit/eşitsiz/null) ve AssetContent (mime + normalize + path traversal) testleri → FAIL → impl → PASS → Commit `feat(android): pure auth + asset mime helpers`.
+- [ ] **Step 1–5:** Auth (equal/unequal/null) and AssetContent (mime + normalize + path traversal) tests → FAIL → impl → PASS → Commit `feat(android): pure auth + asset mime helpers`.
 
 ---
 
-### Task 5: CommandExecutor arayüzü + RemoteServer (Ktor CIO)
+### Task 5: CommandExecutor interface + RemoteServer (Ktor CIO)
 
 **Files:** `input/CommandExecutor.kt`, `server/RemoteServer.kt`.
 
@@ -170,68 +170,68 @@ class CursorTest {
 - Consumes: `decodeClient`, `encodeServer`, `Auth`, `AssetContent`, `CommandExecutor`.
 - Produces:
   - `interface CommandExecutor { fun execute(msg: ClientMessage); fun welcome(): ServerMessage.Welcome }`
-  - `class RemoteServer(port:Int, token:String, assets:AssetManager, exec:CommandExecutor) { fun start(); fun stop() }` — Ktor CIO; `GET /{path...}` → AssetManager'dan `assets/web` servis; `webSocket("/ws")` → `?t` doğrula (Auth), açılışta `welcome` gönder, her text frame → `decodeClient` → `exec.execute`.
+  - `class RemoteServer(port:Int, token:String, assets:AssetManager, exec:CommandExecutor) { fun start(); fun stop() }` — Ktor CIO; `GET /{path...}` → serve `assets/web` from the AssetManager; `webSocket("/ws")` → validate `?t` (Auth), send `welcome` on open, every text frame → `decodeClient` → `exec.execute`.
 
-- [ ] **Step 1:** `CommandExecutor.kt` arayüzü.
-- [ ] **Step 2:** `RemoteServer.kt` (Ktor CIO; static asset handler + ws). *(Not: Ktor route mantığı cihaz/emülatör gerektirir; burada derleme + sahte executor ile elle doğrulama. Token doğrulama zaten Task 4'te test edildi.)*
-- [ ] **Step 3:** `./gradlew :app:assembleDebug` → derlenir. Commit `feat(android): ktor server serving PWA assets + websocket command channel`.
+- [ ] **Step 1:** `CommandExecutor.kt` interface.
+- [ ] **Step 2:** `RemoteServer.kt` (Ktor CIO; static asset handler + ws). *(Note: the Ktor route logic requires a device/emulator; here we verify the build + a fake executor manually. Token validation is already tested in Task 4.)*
+- [ ] **Step 3:** `./gradlew :app:assembleDebug` → compiles. Commit `feat(android): ktor server serving PWA assets + websocket command channel`.
 
 ---
 
-### Task 6: RemoteAccessibilityService (executor impl + imleç overlay)
+### Task 6: RemoteAccessibilityService (executor impl + cursor overlay)
 
-**Files:** `service/RemoteAccessibilityService.kt`, `res/xml/accessibility_service_config.xml`, Manifest'e servis kaydı.
+**Files:** `service/RemoteAccessibilityService.kt`, `res/xml/accessibility_service_config.xml`, register the service in the Manifest.
 
-**Interfaces:** Consumes — `CommandExecutor`, `Cursor`, `ClientMessage`. Produces — çalışan enjeksiyon.
+**Interfaces:** Consumes — `CommandExecutor`, `Cursor`, `ClientMessage`. Produces — working injection.
 
 - [ ] **Step 1:** accessibility config xml (`canPerformGestures=true`, `canRetrieveWindowContent=true`, flags).
-- [ ] **Step 2:** Servis:
-  - `onServiceConnected`: ekran boyutunu al, `Cursor` kur, overlay imleç ekle (`WindowManager`, `TYPE_ACCESSIBILITY_OVERLAY`, `FLAG_NOT_TOUCHABLE or FLAG_NOT_FOCUSABLE`).
-  - `execute(msg)`: `Move`→imleç güncelle+overlay taşı; `Tap`→`dispatchGesture` click; `Scroll`→iki paralel stroke; `Volume`→`AudioManager.adjustStreamVolume(STREAM_MUSIC,...,FLAG_SHOW_UI)`; `Mute`; `Text`→`findFocus(FOCUS_INPUT)`+`ACTION_SET_TEXT`(+`ACTION_SET_SELECTION`); `Submit`→`ACTION_IME_ENTER`; `Backspace`/`Clear`→SET_TEXT; `Global`→`performGlobalAction`.
-  - `welcome()`: ekran w/h, `Build.VERSION.SDK_INT`, `features(imeEnter = SDK_INT>=30, scroll=true)`.
-- [ ] **Step 3:** `./gradlew :app:assembleDebug` → derlenir. Commit `feat(android): accessibility service injecting gestures/volume/text + cursor overlay`.
+- [ ] **Step 2:** Service:
+  - `onServiceConnected`: read the screen size, set up `Cursor`, add the overlay cursor (`WindowManager`, `TYPE_ACCESSIBILITY_OVERLAY`, `FLAG_NOT_TOUCHABLE or FLAG_NOT_FOCUSABLE`).
+  - `execute(msg)`: `Move`→update cursor + move overlay; `Tap`→`dispatchGesture` click; `Scroll`→two parallel strokes; `Volume`→`AudioManager.adjustStreamVolume(STREAM_MUSIC,...,FLAG_SHOW_UI)`; `Mute`; `Text`→`findFocus(FOCUS_INPUT)`+`ACTION_SET_TEXT`(+`ACTION_SET_SELECTION`); `Submit`→`ACTION_IME_ENTER`; `Backspace`/`Clear`→SET_TEXT; `Global`→`performGlobalAction`.
+  - `welcome()`: screen w/h, `Build.VERSION.SDK_INT`, `features(imeEnter = SDK_INT>=30, scroll=true)`.
+- [ ] **Step 3:** `./gradlew :app:assembleDebug` → compiles. Commit `feat(android): accessibility service injecting gestures/volume/text + cursor overlay`.
 
 ---
 
-### Task 7: ServerService (foreground) + Settings (token/port) + Manifest izinleri
+### Task 7: ServerService (foreground) + Settings (token/port) + Manifest permissions
 
 **Files:** `service/ServerService.kt`, `store/Settings.kt`, Manifest (FOREGROUND_SERVICE, INTERNET, POST_NOTIFICATIONS).
 
-**Interfaces:** Produces — `ServerService` foreground bildirimiyle `RemoteServer`'ı tutar; servis ile accessibility executor'ı köprüler (singleton/bound). `Settings`: token üret/sakla (`SharedPreferences`), port.
+**Interfaces:** Produces — `ServerService` holds `RemoteServer` alive with a foreground notification; bridges the service and the accessibility executor (singleton/bound). `Settings`: generate/store the token (`SharedPreferences`), port.
 
-- [ ] **Step 1–3:** Settings (token üretimi `SecureRandom`), ServerService (foreground notification, start/stop), Manifest izinleri → derlenir → Commit `feat(android): foreground service + token store`.
-
----
-
-### Task 8: Kurulum UI (Compose) + QR (ZXing)
-
-**Files:** `ui/SetupScreen.kt`, `ui/Qr.kt`, `MainActivity.kt` güncelle.
-
-**Interfaces:** Produces — durum (erişilebilirlik açık mı, IP, port), QR (`http://<ip>:<port>/?t=<token>`), token yenile, başlat/durdur, erişilebilirlik ayarlarına yönlendir.
-
-- [ ] **Step 1:** `Qr.kt` — ZXing ile `Bitmap` üreten saf-ish fonksiyon (`fun qrBitmap(text:String, size:Int): Bitmap`).
-- [ ] **Step 2:** `SetupScreen.kt` Compose — IP tespiti, QR göster, butonlar.
-- [ ] **Step 3:** derlenir → Commit `feat(android): setup screen with pairing QR`.
+- [ ] **Step 1–3:** Settings (token generation with `SecureRandom`), ServerService (foreground notification, start/stop), Manifest permissions → compiles → Commit `feat(android): foreground service + token store`.
 
 ---
 
-### Task 9: PWA bundling Gradle görevi + APK
+### Task 8: Setup UI (Compose) + QR (ZXing)
+
+**Files:** `ui/SetupScreen.kt`, `ui/Qr.kt`, update `MainActivity.kt`.
+
+**Interfaces:** Produces — status (is accessibility enabled, IP, port), QR (`http://<ip>:<port>/?t=<token>`), regenerate token, start/stop, redirect to accessibility settings.
+
+- [ ] **Step 1:** `Qr.kt` — a pure-ish function that produces a `Bitmap` with ZXing (`fun qrBitmap(text:String, size:Int): Bitmap`).
+- [ ] **Step 2:** `SetupScreen.kt` Compose — IP detection, show QR, buttons.
+- [ ] **Step 3:** compiles → Commit `feat(android): setup screen with pairing QR`.
+
+---
+
+### Task 9: PWA bundling Gradle task + APK
 
 **Files:** `app/build.gradle.kts` (copy task).
 
-**Interfaces:** Produces — `preBuild` öncesi `../client-pwa/dist` → `src/main/assets/web` kopyalanır.
+**Interfaces:** Produces — `../client-pwa/dist` → `src/main/assets/web` is copied before `preBuild`.
 
 - [ ] **Step 1:** Gradle `Copy` task (`from("../../client-pwa/dist") into("src/main/assets/web")`), `preBuild.dependsOn`.
-- [ ] **Step 2:** `cd client-pwa && npm run build` sonra `./gradlew :app:assembleDebug` → APK içinde PWA. Commit `feat(android): bundle PWA build into app assets`.
+- [ ] **Step 2:** `cd client-pwa && npm run build` then `./gradlew :app:assembleDebug` → PWA inside the APK. Commit `feat(android): bundle PWA build into app assets`.
 
 ---
 
-### Task 10: Cihaz üstü manuel doğrulama (gerçek TV)
+### Task 10: On-device manual verification (real TV)
 
-Spec bölüm 13 kontrol listesi — birim test edilemez, kullanıcı TV'de:
-- [ ] APK'yı TV'ye sideload + erişilebilirlik servisini etkinleştir.
-- [ ] Telefonla QR okut → PWA bağlanır (durum "Bağlı").
-- [ ] İmleç hareket/tık/scroll; ses; metin gönder + Enter/Ara; Home/Back/Recents.
-- [ ] Overlay tüm uygulamalarda görünür mü; pil optimizasyonu servisi öldürüyor mu; kilit ekranı davranışı.
+Spec section 13 checklist — cannot be unit tested, user on the TV:
+- [ ] Sideload the APK to the TV + enable the accessibility service.
+- [ ] Scan the QR with a phone → PWA connects (status "Connected").
+- [ ] Cursor move/click/scroll; volume; send text + Enter/Search; Home/Back/Recents.
+- [ ] Is the overlay visible across all apps; does battery optimization kill the service; lock-screen behavior.
 
-**Açık riskler:** AGP/Gradle/JDK uyumu (gerekirse sürüm ayarı); accessibility enjeksiyonu yalnızca cihazda doğrulanır; bazı OEM kısıtları.
+**Open risks:** AGP/Gradle/JDK compatibility (adjust versions if needed); accessibility injection is only verified on a device; some OEM restrictions.

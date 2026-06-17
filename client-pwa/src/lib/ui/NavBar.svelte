@@ -6,9 +6,9 @@
 </script>
 
 <nav>
-  <button onclick={() => g('back')}>◀ Geri</button>
+  <button onclick={() => g('back')}>◀ Back</button>
   <button onclick={() => g('home')}>⌂ Home</button>
-  <button onclick={() => g('recents')}>▣ Son</button>
+  <button onclick={() => g('recents')}>▣ Recents</button>
 </nav>
 
 <style>

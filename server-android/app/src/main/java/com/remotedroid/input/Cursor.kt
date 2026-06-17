@@ -1,8 +1,8 @@
 package com.remotedroid.input
 
 /**
- * Saf imleç matematiği. Göreli delta'ları hassasiyetle ölçekler ve imleci ekran
- * sınırlarına kıstırır. Android/DOM bağımlılığı yok → JVM'de birim test edilebilir.
+ * Pure cursor math. Scales relative deltas with sensitivity and clamps the cursor to the
+ * screen bounds. No Android/DOM dependency → unit-testable on the JVM.
  */
 class Cursor(
     var x: Float,

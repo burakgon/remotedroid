@@ -6,7 +6,7 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.view.View
 
-/** TV'de gösterilen imleç görseli (içi dolu nokta + halka). Yalnızca görsel; dokunmayı geçirgen. */
+/** Cursor visual shown on the TV (filled dot + ring). Visual only; passes touches through. */
 class CursorView(context: Context) : View(context) {
     private val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.WHITE

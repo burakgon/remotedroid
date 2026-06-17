@@ -39,7 +39,7 @@
             android:foregroundServiceType="specialUse">
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="Yerel ağ üzerinden TV kumanda sunucusu" />
+                android:value="TV remote control server over the local network" />
         </service>
     </application>
 </manifest>

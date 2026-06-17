@@ -61,7 +61,7 @@ dependencies {
     testImplementation(libs.junit)
 }
 
-// PWA build çıktısını (client-pwa/dist) APK assets/web içine kopyalar.
+// Copies the PWA build output (client-pwa/dist) into the APK at assets/web.
 val copyPwa = tasks.register<Copy>("copyPwa") {
     from("$projectDir/../../client-pwa/dist")
     into("$projectDir/src/main/assets/web")

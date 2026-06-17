@@ -7,7 +7,7 @@
   import VolumeBar from './lib/ui/VolumeBar.svelte';
   import KeyboardPanel from './lib/ui/KeyboardPanel.svelte';
 
-  // token önceliği: URL (?t=) > localStorage
+  // token priority: URL (?t=) > localStorage
   const params = new URLSearchParams(location.search);
   const urlToken = params.get('t');
   if (urlToken) localStorage.setItem('rd_token', urlToken);

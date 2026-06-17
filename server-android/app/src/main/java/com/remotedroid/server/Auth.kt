@@ -1,8 +1,8 @@
 package com.remotedroid.server
 
 /**
- * Token doğrulama. Sabit-zamanlı karşılaştırma (zamanlama sızıntısını azaltır).
- * Boş/null token reddedilir.
+ * Token verification. Constant-time comparison (reduces timing leaks).
+ * Empty/null tokens are rejected.
  */
 object Auth {
     fun isValid(expected: String, provided: String?): Boolean {

@@ -7,7 +7,7 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
 /**
- * Kumandadan gelen mesajlar. JSON `type` ayırıcısı PWA `messages.ts` ile birebir.
+ * Messages from the remote. The JSON `type` discriminator matches the PWA `messages.ts` exactly.
  */
 @Serializable
 sealed interface ClientMessage {
@@ -67,7 +67,7 @@ data class Screen(val w: Int, val h: Int)
 data class Features(val imeEnter: Boolean, val scroll: Boolean)
 
 /**
- * Sunucudan kumandaya giden mesajlar.
+ * Messages from the server to the remote.
  */
 @Serializable
 sealed interface ServerMessage {

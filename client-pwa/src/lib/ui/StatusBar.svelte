@@ -3,13 +3,13 @@
   import type { Status } from '../transport/connection';
 
   let { status, onkeyboard }: { status: Readable<Status>; onkeyboard: () => void } = $props();
-  const label: Record<Status, string> = { connecting: 'Bağlanıyor…', connected: 'Bağlı', disconnected: 'Kopuk' };
+  const label: Record<Status, string> = { connecting: 'Connecting…', connected: 'Connected', disconnected: 'Disconnected' };
 </script>
 
 <header>
   <span class="dot {$status}"></span>
   <span>{label[$status]}</span>
-  <button class="kbbtn" onclick={onkeyboard} aria-label="Klavye">⌨</button>
+  <button class="kbbtn" onclick={onkeyboard} aria-label="Keyboard">⌨</button>
 </header>
 
 <style>

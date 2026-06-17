@@ -1,26 +1,26 @@
-# RemoteDroid — Phase A: Protokol + PWA Kumanda — Implementation Plan
+# RemoteDroid — Phase A: Protocol + PWA Remote — Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** TV'nin sunacağı PWA kumandanın çalışan, test edilmiş ilk sürümünü kurmak — göreli imleçli touchpad, ses, gezinme ve klavye komutlarını WebSocket/JSON protokolüyle gönderen, sahte sunucuya karşı uçtan uca doğrulanabilir bir istemci.
+**Goal:** Stand up the first working, tested version of the PWA remote that the TV will serve — a client with a relative-cursor touchpad that sends tap, volume, navigation, and keyboard commands over a WebSocket/JSON protocol, verifiable end-to-end against a mock server.
 
-**Architecture:** Svelte + TypeScript + Vite tek sayfa uygulaması. Saf mantık (protokol kodlama, gesture algılama, WebSocket taşıma + yeniden bağlanma) framework'ten bağımsız modüller olarak yazılır ve Vitest ile TDD edilir; Svelte bileşenleri bu modülleri kullanır. WebSocket yapıcı (`WebSocketCtor`) enjekte edilebilir, böylece taşıma katmanı gerçek ağ olmadan test edilir.
+**Architecture:** A Svelte + TypeScript + Vite single-page application. The pure logic (protocol encoding, gesture detection, WebSocket transport + reconnect) is written as framework-agnostic modules and developed test-first with Vitest; the Svelte components consume those modules. The WebSocket constructor (`WebSocketCtor`) is injectable, so the transport layer can be tested without a real network.
 
 **Tech Stack:** Svelte 5, TypeScript, Vite, Vitest, jsdom, Node 25 / npm 11.
 
 ## Global Constraints
 
-- Protokol sürümü `v = 1`; mesaj şekilleri spec bölüm 6 ile birebir aynı (`docs/superpowers/specs/2026-06-18-remotedroid-design.md`).
-- Taşıma: WebSocket üzerinden JSON; `ws://<host>:<port>/ws?t=<token>`.
-- Varsayılan port 8080 (host/port `window.location`'dan türetilir; geliştirmede override edilebilir).
-- Tüm modüller TypeScript `strict` modunda derlenir.
-- Lisans Apache-2.0 (repo köküne LICENSE Phase B'de eklenir; bu plan client-pwa'ya odaklı).
-- Saf mantık için TDD: önce başarısız test, sonra minimal implementasyon. Her task sonunda commit.
-- DRY / YAGNI: longpress, drag ve QR-kamera Phase A kapsamı DIŞINDA (sonraki PWA planı). Phase A: `move`, `tap`, `scroll`, `volume`, `mute`, `global`, `text`, `submit`, `backspace`, `clear`.
+- Protocol version `v = 1`; message shapes are identical to spec section 6 (`docs/superpowers/specs/2026-06-18-remotedroid-design.md`).
+- Transport: JSON over WebSocket; `ws://<host>:<port>/ws?t=<token>`.
+- Default port 8080 (host/port are derived from `window.location`; overridable in development).
+- All modules compile in TypeScript `strict` mode.
+- License Apache-2.0 (LICENSE is added at the repo root in Phase B; this plan focuses on client-pwa).
+- TDD for pure logic: failing test first, then minimal implementation. Commit at the end of each task.
+- DRY / YAGNI: longpress, drag, and QR-camera are OUT of scope for Phase A (a later PWA plan). Phase A: `move`, `tap`, `scroll`, `volume`, `mute`, `global`, `text`, `submit`, `backspace`, `clear`.
 
 ---
 
-## Dosya Yapısı
+## File Structure
 
 ```
 client-pwa/
@@ -31,13 +31,13 @@ client-pwa/
 ├── index.html
 ├── public/manifest.webmanifest
 ├── src/
-│   ├── main.ts                       # uygulama girişi
-│   ├── App.svelte                    # kompozisyon + token bootstrap
+│   ├── main.ts                       # application entry
+│   ├── App.svelte                    # composition + token bootstrap
 │   ├── lib/
-│   │   ├── protocol/messages.ts      # protokol tipleri + encode/decode (saf)
-│   │   ├── touchpad/gestureDetector.ts  # pointer → gesture (saf)
-│   │   ├── touchpad/Touchpad.svelte  # dokunma yüzeyi bileşeni
-│   │   ├── transport/connection.ts   # WS istemci + yeniden bağlanma (saf çekirdek)
+│   │   ├── protocol/messages.ts      # protocol types + encode/decode (pure)
+│   │   ├── touchpad/gestureDetector.ts  # pointer → gesture (pure)
+│   │   ├── touchpad/Touchpad.svelte  # tap surface component
+│   │   ├── transport/connection.ts   # WS client + reconnect (pure core)
 │   │   └── ui/
 │   │       ├── StatusBar.svelte
 │   │       ├── NavBar.svelte
@@ -51,23 +51,23 @@ client-pwa/
     └── keyboardPanel.test.ts
 ```
 
-**Sorumluluklar:**
-- `messages.ts` — protokolün tek TS kaynağı; sadece tipler + `encode`/`decodeServer`. Ağ/DOM bilmez.
-- `gestureDetector.ts` — pointer örneklerinden semantik gesture üretir. Zaman, DOM, ağ bilmez; tamamen deterministik.
-- `connection.ts` — WS yaşam döngüsü, hello el sıkışması, welcome saklama, üssel geri çekilmeli yeniden bağlanma. `WebSocketCtor` enjekte edilebilir.
-- Svelte bileşenleri — yukarıdaki modülleri DOM'a bağlar.
+**Responsibilities:**
+- `messages.ts` — the single TS source for the protocol; types only + `encode`/`decodeServer`. Knows nothing about network/DOM.
+- `gestureDetector.ts` — produces semantic gestures from pointer samples. Knows nothing about time, DOM, or network; fully deterministic.
+- `connection.ts` — WS lifecycle, hello handshake, welcome storage, exponential-backoff reconnect. `WebSocketCtor` is injectable.
+- Svelte components — bind the modules above to the DOM.
 
 ---
 
-### Task 1: PWA iskeleti (derlenir + test koşar)
+### Task 1: PWA scaffold (compiles + tests run)
 
 **Files:**
 - Create: `client-pwa/package.json`, `client-pwa/tsconfig.json`, `client-pwa/svelte.config.js`, `client-pwa/vite.config.ts`, `client-pwa/index.html`, `client-pwa/src/main.ts`, `client-pwa/src/App.svelte`, `client-pwa/src/app.css`
 
 **Interfaces:**
-- Produces: çalışan `npm run dev`, `npm run build`, `npm test` (Vitest, jsdom ortamı).
+- Produces: working `npm run dev`, `npm run build`, `npm test` (Vitest, jsdom environment).
 
-- [ ] **Step 1: package.json yaz**
+- [ ] **Step 1: Write package.json**
 
 ```json
 {
@@ -97,7 +97,7 @@ client-pwa/
 }
 ```
 
-- [ ] **Step 2: tsconfig.json, svelte.config.js, vite.config.ts yaz**
+- [ ] **Step 2: Write tsconfig.json, svelte.config.js, vite.config.ts**
 
 `tsconfig.json`:
 ```json
@@ -138,7 +138,7 @@ export default defineConfig({
 });
 ```
 
-- [ ] **Step 3: index.html, main.ts, App.svelte, app.css yaz**
+- [ ] **Step 3: Write index.html, main.ts, App.svelte, app.css**
 
 `index.html`:
 ```html
@@ -168,7 +168,7 @@ const app = mount(App, { target: document.getElementById('app')! });
 export default app;
 ```
 
-`src/App.svelte` (Task 6'da genişletilecek — şimdilik placeholder yerine gerçek minimal içerik):
+`src/App.svelte` (to be expanded in Task 6 — for now real minimal content instead of a placeholder):
 ```svelte
 <script lang="ts">
 </script>
@@ -190,14 +190,14 @@ html, body { margin: 0; height: 100%; background: #0b0f17;
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; overscroll-behavior: none; }
 ```
 
-- [ ] **Step 4: Bağımlılıkları kur ve derle**
+- [ ] **Step 4: Install dependencies and build**
 
 Run: `cd client-pwa && npm install && npm run build`
-Expected: `dist/` üretilir, hata yok.
+Expected: `dist/` is produced, no errors.
 
-- [ ] **Step 5: Test altyapısının koştuğunu doğrula (geçici smoke test)**
+- [ ] **Step 5: Verify the test harness runs (temporary smoke test)**
 
-`tests/messages.test.ts` (geçici):
+`tests/messages.test.ts` (temporary):
 ```ts
 import { describe, it, expect } from 'vitest';
 describe('smoke', () => { it('runs', () => { expect(1 + 1).toBe(2); }); });
@@ -213,20 +213,20 @@ git add client-pwa && git commit -m "feat(pwa): scaffold Svelte+Vite+Vitest proj
 
 ---
 
-### Task 2: Protokol mesajları (saf, TDD)
+### Task 2: Protocol messages (pure, TDD)
 
 **Files:**
 - Create: `client-pwa/src/lib/protocol/messages.ts`
-- Test: `client-pwa/tests/messages.test.ts` (smoke testin yerine geçer)
+- Test: `client-pwa/tests/messages.test.ts` (replaces the smoke test)
 
 **Interfaces:**
 - Produces:
   - `PROTOCOL_VERSION: number`
-  - `type ClientMessage` (spec bölüm 6 birebir), `type ServerMessage`, `type GlobalAction`, `interface Features`
+  - `type ClientMessage` (identical to spec section 6), `type ServerMessage`, `type GlobalAction`, `interface Features`
   - `encode(msg: ClientMessage): string`
   - `decodeServer(data: string): ServerMessage`
 
-- [ ] **Step 1: Başarısız testi yaz**
+- [ ] **Step 1: Write the failing test**
 
 `tests/messages.test.ts`:
 ```ts
@@ -251,12 +251,12 @@ describe('protocol', () => {
 });
 ```
 
-- [ ] **Step 2: Testi koş, başarısız olduğunu doğrula**
+- [ ] **Step 2: Run the test, confirm it fails**
 
 Run: `cd client-pwa && npm test`
 Expected: FAIL — `Cannot find module '../src/lib/protocol/messages'`.
 
-- [ ] **Step 3: Minimal implementasyonu yaz**
+- [ ] **Step 3: Write the minimal implementation**
 
 `src/lib/protocol/messages.ts`:
 ```ts
@@ -295,7 +295,7 @@ export function encode(msg: ClientMessage): string { return JSON.stringify(msg);
 export function decodeServer(data: string): ServerMessage { return JSON.parse(data) as ServerMessage; }
 ```
 
-- [ ] **Step 4: Testi koş, geçtiğini doğrula**
+- [ ] **Step 4: Run the test, confirm it passes**
 
 Run: `cd client-pwa && npm test`
 Expected: 3 passed.
@@ -308,21 +308,21 @@ git add client-pwa && git commit -m "feat(pwa): protocol message types and encod
 
 ---
 
-### Task 3: Gesture algılayıcı (saf, TDD) — touchpad'in kalbi
+### Task 3: Gesture detector (pure, TDD) — the heart of the touchpad
 
 **Files:**
 - Create: `client-pwa/src/lib/touchpad/gestureDetector.ts`
 - Test: `client-pwa/tests/gestureDetector.test.ts`
 
 **Interfaces:**
-- Consumes: yok (saf).
+- Consumes: none (pure).
 - Produces:
   - `interface PointerSample { id: number; x: number; y: number; t: number }`
   - `type Gesture = { type:'move'; dx:number; dy:number } | { type:'tap' } | { type:'scroll'; dx:number; dy:number }`
   - `interface GestureOptions { tapMaxMs:number; tapMaxMovePx:number; sensitivity:number }`
   - `class GestureDetector { constructor(opts?: Partial<GestureOptions>); onPointerDown(s:PointerSample):Gesture[]; onPointerMove(s:PointerSample):Gesture[]; onPointerUp(s:PointerSample):Gesture[] }`
 
-- [ ] **Step 1: Başarısız testi yaz**
+- [ ] **Step 1: Write the failing test**
 
 `tests/gestureDetector.test.ts`:
 ```ts
@@ -368,12 +368,12 @@ describe('GestureDetector', () => {
 });
 ```
 
-- [ ] **Step 2: Testi koş, başarısız olduğunu doğrula**
+- [ ] **Step 2: Run the test, confirm it fails**
 
 Run: `cd client-pwa && npm test gestureDetector`
-Expected: FAIL — modül yok.
+Expected: FAIL — module not found.
 
-- [ ] **Step 3: Minimal implementasyonu yaz**
+- [ ] **Step 3: Write the minimal implementation**
 
 `src/lib/touchpad/gestureDetector.ts`:
 ```ts
@@ -427,7 +427,7 @@ export class GestureDetector {
 }
 ```
 
-- [ ] **Step 4: Testi koş, geçtiğini doğrula**
+- [ ] **Step 4: Run the test, confirm it passes**
 
 Run: `cd client-pwa && npm test gestureDetector`
 Expected: 5 passed.
@@ -440,7 +440,7 @@ git add client-pwa && git commit -m "feat(pwa): pure gesture detector (tap/move/
 
 ---
 
-### Task 4: WebSocket taşıma + yeniden bağlanma (saf çekirdek, TDD)
+### Task 4: WebSocket transport + reconnect (pure core, TDD)
 
 **Files:**
 - Create: `client-pwa/src/lib/transport/connection.ts`
@@ -453,7 +453,7 @@ git add client-pwa && git commit -m "feat(pwa): pure gesture detector (tap/move/
   - `interface Connection { status: Readable<Status>; welcome: Readable<Welcome|null>; send(msg:ClientMessage):void; close():void }`
   - `function createConnection(opts: ConnectionOptions): Connection` — `ConnectionOptions { url:string; token:string; client?:string; WebSocketCtor?: typeof WebSocket; reconnectBaseMs?:number; reconnectMaxMs?:number }`
 
-- [ ] **Step 1: Başarısız testi yaz (sahte WebSocket ile)**
+- [ ] **Step 1: Write the failing test (with a mock WebSocket)**
 
 `tests/connection.test.ts`:
 ```ts
@@ -499,10 +499,10 @@ describe('createConnection', () => {
     createConnection({ url: 'ws://tv:8080/ws', token: 'T', reconnectBaseMs: 500, WebSocketCtor: MockWS as unknown as typeof WebSocket });
     const first = MockWS.last!;
     first._open();
-    first.close();                      // beklenmedik kopma
-    expect(MockWS.last).toBe(first);    // henüz yeni bağlantı yok
+    first.close();                      // unexpected disconnect
+    expect(MockWS.last).toBe(first);    // no new connection yet
     vi.advanceTimersByTime(500);
-    expect(MockWS.last).not.toBe(first); // yeni bağlantı kuruldu
+    expect(MockWS.last).not.toBe(first); // new connection established
   });
 
   it('does not reconnect after an explicit close()', () => {
@@ -516,12 +516,12 @@ describe('createConnection', () => {
 });
 ```
 
-- [ ] **Step 2: Testi koş, başarısız olduğunu doğrula**
+- [ ] **Step 2: Run the test, confirm it fails**
 
 Run: `cd client-pwa && npm test connection`
-Expected: FAIL — modül yok.
+Expected: FAIL — module not found.
 
-- [ ] **Step 3: Minimal implementasyonu yaz**
+- [ ] **Step 3: Write the minimal implementation**
 
 `src/lib/transport/connection.ts`:
 ```ts
@@ -561,10 +561,10 @@ export function createConnection(opts: ConnectionOptions): Connection {
     };
     ws.onmessage = (e: MessageEvent) => {
       const data = typeof e.data === 'string' ? e.data : '';
-      try { const m = decodeServer(data); if (m.type === 'welcome') welcome.set(m); } catch { /* yoksay */ }
+      try { const m = decodeServer(data); if (m.type === 'welcome') welcome.set(m); } catch { /* ignore */ }
     };
     ws.onclose = () => { status.set('disconnected'); if (!closed) schedule(); };
-    ws.onerror = () => { try { ws?.close(); } catch { /* yoksay */ } };
+    ws.onerror = () => { try { ws?.close(); } catch { /* ignore */ } };
   };
 
   const schedule = () => {
@@ -582,7 +582,7 @@ export function createConnection(opts: ConnectionOptions): Connection {
 }
 ```
 
-- [ ] **Step 4: Testi koş, geçtiğini doğrula**
+- [ ] **Step 4: Run the test, confirm it passes**
 
 Run: `cd client-pwa && npm test connection`
 Expected: 4 passed.
@@ -595,16 +595,16 @@ git add client-pwa && git commit -m "feat(pwa): websocket transport with reconne
 
 ---
 
-### Task 5: Touchpad bileşeni (pointer olaylarını mesaja bağlar)
+### Task 5: Touchpad component (binds pointer events to messages)
 
 **Files:**
 - Create: `client-pwa/src/lib/touchpad/Touchpad.svelte`
 
 **Interfaces:**
 - Consumes: `GestureDetector`, `Gesture` (Task 3); `ClientMessage` (Task 2).
-- Produces: `<Touchpad onmessage={(m: ClientMessage) => void} sensitivity={number} />` — pointer olaylarını yakalar, gesture'ları `move`/`tap`/`scroll` ClientMessage'larına çevirip `onmessage` ile yukarı verir.
+- Produces: `<Touchpad onmessage={(m: ClientMessage) => void} sensitivity={number} />` — captures pointer events, converts gestures into `move`/`tap`/`scroll` ClientMessages and passes them up via `onmessage`.
 
-- [ ] **Step 1: Bileşeni yaz**
+- [ ] **Step 1: Write the component**
 
 `src/lib/touchpad/Touchpad.svelte`:
 ```svelte
@@ -655,10 +655,10 @@ git add client-pwa && git commit -m "feat(pwa): websocket transport with reconne
 </style>
 ```
 
-- [ ] **Step 2: Derleme/type kontrolü**
+- [ ] **Step 2: Build / type check**
 
 Run: `cd client-pwa && npm run build`
-Expected: hata yok (`dist/` üretilir).
+Expected: no errors (`dist/` is produced).
 
 - [ ] **Step 3: Commit**
 
@@ -668,7 +668,7 @@ git add client-pwa && git commit -m "feat(pwa): touchpad surface component wired
 
 ---
 
-### Task 6: UI kabuğu — App + StatusBar + NavBar + VolumeBar + KeyboardPanel
+### Task 6: UI shell — App + StatusBar + NavBar + VolumeBar + KeyboardPanel
 
 **Files:**
 - Create: `client-pwa/src/lib/ui/StatusBar.svelte`, `NavBar.svelte`, `VolumeBar.svelte`, `KeyboardPanel.svelte`
@@ -677,9 +677,9 @@ git add client-pwa && git commit -m "feat(pwa): touchpad surface component wired
 
 **Interfaces:**
 - Consumes: `createConnection` (Task 4), `Touchpad` (Task 5), `ClientMessage`/`GlobalAction` (Task 2).
-- Produces: tam çalışan kumanda; token'ı `?t=` veya `localStorage`'dan alır, ws URL'sini `window.location`'dan türetir, tüm kontrolleri tek `send(msg)` ile sunucuya iletir.
+- Produces: a fully working remote; takes the token from `?t=` or `localStorage`, derives the ws URL from `window.location`, and routes every control to the server through a single `send(msg)`.
 
-- [ ] **Step 1: KeyboardPanel için başarısız testi yaz**
+- [ ] **Step 1: Write the failing test for KeyboardPanel**
 
 `tests/keyboardPanel.test.ts`:
 ```ts
@@ -688,29 +688,29 @@ import { render, fireEvent } from '@testing-library/svelte';
 import KeyboardPanel from '../src/lib/ui/KeyboardPanel.svelte';
 
 describe('KeyboardPanel', () => {
-  it('sends the whole text at once when Gönder is pressed', async () => {
+  it('sends the whole text at once when Send is pressed', async () => {
     const send = vi.fn();
     const { getByRole, getByText } = render(KeyboardPanel, { props: { send } });
     await fireEvent.input(getByRole('textbox'), { target: { value: 'interstellar' } });
-    await fireEvent.click(getByText('Gönder'));
+    await fireEvent.click(getByText('Send'));
     expect(send).toHaveBeenCalledWith({ type: 'text', value: 'interstellar' });
   });
 
-  it('sends submit when Enter/Ara is pressed', async () => {
+  it('sends submit when Enter/Search is pressed', async () => {
     const send = vi.fn();
     const { getByText } = render(KeyboardPanel, { props: { send } });
-    await fireEvent.click(getByText('Enter / Ara'));
+    await fireEvent.click(getByText('Enter / Search'));
     expect(send).toHaveBeenCalledWith({ type: 'submit' });
   });
 });
 ```
 
-- [ ] **Step 2: Testi koş, başarısız olduğunu doğrula**
+- [ ] **Step 2: Run the test, confirm it fails**
 
 Run: `cd client-pwa && npm test keyboardPanel`
-Expected: FAIL — bileşen yok.
+Expected: FAIL — component not found.
 
-- [ ] **Step 3: UI bileşenlerini yaz**
+- [ ] **Step 3: Write the UI components**
 
 `src/lib/ui/KeyboardPanel.svelte`:
 ```svelte
@@ -721,13 +721,13 @@ Expected: FAIL — bileşen yok.
 </script>
 
 <div class="kb">
-  <label for="msg">Mesajını yaz</label>
-  <textarea id="msg" rows="2" bind:value placeholder="metni yaz, Gönder'e bas…"></textarea>
+  <label for="msg">Type a message</label>
+  <textarea id="msg" rows="2" bind:value placeholder="type text, press Send…"></textarea>
   <div class="row">
-    <button onclick={() => send({ type: 'text', value })}>Gönder</button>
-    <button onclick={() => send({ type: 'submit' })}>Enter / Ara</button>
+    <button onclick={() => send({ type: 'text', value })}>Send</button>
+    <button onclick={() => send({ type: 'submit' })}>Enter / Search</button>
     <button onclick={() => send({ type: 'backspace' })}>⌫</button>
-    <button onclick={() => { value = ''; send({ type: 'clear' }); }}>Temizle</button>
+    <button onclick={() => { value = ''; send({ type: 'clear' }); }}>Clear</button>
   </div>
 </div>
 
@@ -747,12 +747,12 @@ Expected: FAIL — bileşen yok.
   import type { Readable } from 'svelte/store';
   import type { Status } from '../transport/connection';
   let { status, onkeyboard }: { status: Readable<Status>; onkeyboard: () => void } = $props();
-  const label: Record<Status, string> = { connecting: 'Bağlanıyor…', connected: 'Bağlı', disconnected: 'Kopuk' };
+  const label: Record<Status, string> = { connecting: 'Connecting…', connected: 'Connected', disconnected: 'Disconnected' };
 </script>
 
 <header>
   <span class="dot {$status}"></span><span>{label[$status]}</span>
-  <button class="kbbtn" onclick={onkeyboard} aria-label="Klavye">⌨</button>
+  <button class="kbbtn" onclick={onkeyboard} aria-label="Keyboard">⌨</button>
 </header>
 
 <style>
@@ -772,9 +772,9 @@ Expected: FAIL — bileşen yok.
 </script>
 
 <nav>
-  <button onclick={() => g('back')}>◀ Geri</button>
+  <button onclick={() => g('back')}>◀ Back</button>
   <button onclick={() => g('home')}>⌂ Home</button>
-  <button onclick={() => g('recents')}>▣ Son</button>
+  <button onclick={() => g('recents')}>▣ Recents</button>
 </nav>
 
 <style>
@@ -804,7 +804,7 @@ Expected: FAIL — bileşen yok.
 </style>
 ```
 
-- [ ] **Step 4: App.svelte'i bunları birleştirecek şekilde yaz**
+- [ ] **Step 4: Write App.svelte to wire these together**
 
 `src/App.svelte`:
 ```svelte
@@ -842,15 +842,15 @@ Expected: FAIL — bileşen yok.
 </style>
 ```
 
-- [ ] **Step 5: Testi koş + derle**
+- [ ] **Step 5: Run tests + build**
 
 Run: `cd client-pwa && npm test && npm run build`
-Expected: tüm testler PASS (keyboardPanel 2 + öncekiler), `dist/` üretilir.
+Expected: all tests PASS (keyboardPanel 2 + the earlier ones), `dist/` is produced.
 
-- [ ] **Step 6: Tarayıcıda manuel doğrula**
+- [ ] **Step 6: Verify manually in the browser**
 
-Run: `cd client-pwa && npm run dev` → tarayıcıda aç.
-Beklenen: Karanlık arayüz; üstte durum (sahte sunucu yoksa "Bağlanıyor…/Kopuk"), büyük touchpad, altında gezinme + ses, ⌨ ile klavye paneli. Konsol hatası yok.
+Run: `cd client-pwa && npm run dev` → open in the browser.
+Expected: a dark UI; status at the top ("Connecting…/Disconnected" when there is no mock server), a large touchpad, navigation + volume below it, and the keyboard panel via ⌨. No console errors.
 
 - [ ] **Step 7: Commit**
 
@@ -860,15 +860,15 @@ git add client-pwa && git commit -m "feat(pwa): full remote UI shell (status, to
 
 ---
 
-### Task 7: PWA manifest + istemci README
+### Task 7: PWA manifest + client README
 
 **Files:**
 - Create: `client-pwa/public/manifest.webmanifest`, `client-pwa/README.md`
 
 **Interfaces:**
-- Produces: "ana ekrana ekle" için manifest; istemci geliştirme talimatları.
+- Produces: a manifest for "add to home screen"; client development instructions.
 
-- [ ] **Step 1: manifest.webmanifest yaz**
+- [ ] **Step 1: Write manifest.webmanifest**
 
 ```json
 {
@@ -883,21 +883,21 @@ git add client-pwa && git commit -m "feat(pwa): full remote UI shell (status, to
 }
 ```
 
-- [ ] **Step 2: README.md yaz (kısa)**
+- [ ] **Step 2: Write README.md (short)**
 
 ```markdown
-# RemoteDroid — PWA Kumanda
+# RemoteDroid — PWA Remote
 
-TV'deki RemoteDroid sunucusunun sunduğu web kumanda.
+The web remote served by the RemoteDroid server on the TV.
 
-## Geliştirme
+## Development
 ```bash
 npm install
-npm run dev      # tarayıcıda aç
-npm test         # birim testler
-npm run build    # dist/ üretir (Android assets'e kopyalanır — Phase B)
+npm run dev      # open in the browser
+npm test         # unit tests
+npm run build    # produces dist/ (copied into the Android assets — Phase B)
 ```
-Protokol: `../docs/superpowers/specs/2026-06-18-remotedroid-design.md` bölüm 6.
+Protocol: `../docs/superpowers/specs/2026-06-18-remotedroid-design.md` section 6.
 ```
 
 - [ ] **Step 3: Commit**
@@ -908,34 +908,34 @@ git add client-pwa && git commit -m "chore(pwa): web manifest and client README"
 
 ---
 
-## Phase A — Tamamlanma Kriteri
+## Phase A — Completion Criteria
 
-- `npm test` → tüm birim testler yeşil (protokol, gesture, transport, klavye paneli).
-- `npm run build` → `dist/` hatasız üretilir.
-- `npm run dev` → tarayıcıda tam kumanda arayüzü görünür ve etkileşir.
-- Çıktı, Phase B'de Android `assets/web`'e kopyalanmaya hazır.
+- `npm test` → all unit tests green (protocol, gesture, transport, keyboard panel).
+- `npm run build` → `dist/` is produced without errors.
+- `npm run dev` → the full remote UI appears in the browser and is interactive.
+- The output is ready to be copied into the Android `assets/web` in Phase B.
 
 ---
 
-## Phase B — Android Sunucu (sonraki plan, özet)
+## Phase B — Android Server (next plan, summary)
 
-Ayrı plan dosyasında detaylandırılacak. Ön koşullar ve görev iskeleti:
+To be detailed in a separate plan file. Prerequisites and task outline:
 
-**Ön koşullar (toolchain):**
-- `openjdk@21` kur (AGP JDK 26'yı desteklemiyor olabilir).
-- `sdkmanager` ile `platform-tools` (adb) + `platforms;android-34` + uygun `build-tools` kur; `ANDROID_HOME` ayarla.
-- Gradle wrapper üret.
+**Prerequisites (toolchain):**
+- Install `openjdk@21` (AGP may not support JDK 26).
+- Install `platform-tools` (adb) + `platforms;android-34` + the appropriate `build-tools` via `sdkmanager`; set `ANDROID_HOME`.
+- Generate the Gradle wrapper.
 
-**Görev iskeleti:**
-1. Gradle/Android proje iskeleti (Compose + Ktor + kotlinx.serialization bağımlılıkları), minSdk 26.
-2. Protokol modelleri (Kotlin, kotlinx.serialization) — TS `messages.ts` ile birebir; JVM birim testleri (round-trip).
-3. Gesture matematiği (delta → koordinat, ivme, ekran sınırına kıstırma) — saf Kotlin, JVM birim testleri.
-4. `AccessibilityService`: imleç overlay'i (WindowManager) + `dispatchGesture` (move/tap/scroll) + global eylemler + ses (`AudioManager`).
-5. Metin: `ACTION_SET_TEXT` (+ `ACTION_IME_ENTER`, API 30+ koşullu).
-6. Ktor CIO sunucu: `assets/web` statik servis + `/ws` (token doğrulama) → komutları servise iletir.
-7. Foreground Service + otomatik başlatma + pil optimizasyonu uyarısı.
-8. Compose kurulum UI: durum, IP, QR (ZXing), token üret/yenile, başlat/durdur.
-9. PWA build çıktısını `assets/web`'e kopyalayan Gradle görevi.
-10. **Cihaz üstü manuel doğrulama** (spec bölüm 13): dispatchGesture, overlay, kilit ekranı, pil, sideload.
+**Task outline:**
+1. Gradle/Android project scaffold (Compose + Ktor + kotlinx.serialization dependencies), minSdk 26.
+2. Protocol models (Kotlin, kotlinx.serialization) — identical to the TS `messages.ts`; JVM unit tests (round-trip).
+3. Gesture math (delta → coordinate, acceleration, clamping to screen bounds) — pure Kotlin, JVM unit tests.
+4. `AccessibilityService`: cursor overlay (WindowManager) + `dispatchGesture` (move/tap/scroll) + global actions + volume (`AudioManager`).
+5. Text: `ACTION_SET_TEXT` (+ `ACTION_IME_ENTER`, conditional on API 30+).
+6. Ktor CIO server: static serving of `assets/web` + `/ws` (token verification) → forwards commands to the service.
+7. Foreground Service + auto-start + battery-optimization warning.
+8. Compose setup UI: status, IP, QR (ZXing), generate/refresh token, start/stop.
+9. A Gradle task that copies the PWA build output into `assets/web`.
+10. **On-device manual verification** (spec section 13): dispatchGesture, overlay, lock screen, battery, sideload.
 
-**Açık riskler:** JDK uyumu; `platform-tools` eksikliği; accessibility enjeksiyonu birim test edilemez → gerçek TV gerekir.
+**Open risks:** JDK compatibility; missing `platform-tools`; accessibility injection cannot be unit-tested → a real TV is required.
