@@ -37,4 +37,35 @@ describe('GestureDetector', () => {
     expect(g.onPointerUp(p(2, 200, 130, 25))).toEqual([]);
     expect(g.onPointerUp(p(1, 100, 100, 30))).toEqual([]);
   });
+
+  it('starts a drag when the finger is held past holdMs before moving', () => {
+    const g = new GestureDetector({ sensitivity: 1, holdMs: 500 });
+    g.onPointerDown(p(1, 100, 100, 0));
+    // first movement arrives after the hold threshold -> drag, not cursor move
+    expect(g.onPointerMove(p(1, 110, 100, 600))).toEqual([
+      { type: 'dragstart' },
+      { type: 'dragmove', dx: 10, dy: 0 },
+    ]);
+  });
+
+  it('continues a drag on subsequent moves and ends it on pointer up', () => {
+    const g = new GestureDetector({ sensitivity: 1, holdMs: 500 });
+    g.onPointerDown(p(1, 100, 100, 0));
+    g.onPointerMove(p(1, 110, 100, 600)); // dragstart + dragmove
+    expect(g.onPointerMove(p(1, 120, 100, 620))).toEqual([{ type: 'dragmove', dx: 10, dy: 0 }]);
+    expect(g.onPointerUp(p(1, 120, 100, 640))).toEqual([{ type: 'dragend' }]);
+  });
+
+  it('treats an immediate move as a cursor move, not a drag', () => {
+    const g = new GestureDetector({ sensitivity: 1, holdMs: 500 });
+    g.onPointerDown(p(1, 100, 100, 0));
+    expect(g.onPointerMove(p(1, 110, 100, 16))).toEqual([{ type: 'move', dx: 10, dy: 0 }]);
+  });
+
+  it('does not emit a tap after a drag', () => {
+    const g = new GestureDetector({ holdMs: 500 });
+    g.onPointerDown(p(1, 100, 100, 0));
+    g.onPointerMove(p(1, 130, 100, 600)); // becomes a drag
+    expect(g.onPointerUp(p(1, 130, 100, 650))).toEqual([{ type: 'dragend' }]);
+  });
 });
