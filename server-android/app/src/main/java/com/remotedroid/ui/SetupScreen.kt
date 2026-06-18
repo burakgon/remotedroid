@@ -10,10 +10,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -24,6 +26,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.remotedroid.service.RemoteAccessibilityService
@@ -37,8 +40,9 @@ fun SetupScreen() {
     val context = LocalContext.current
     val settings = remember { Settings(context) }
     var token by remember { mutableStateOf(settings.token) }
+    var port by remember { mutableStateOf(settings.port.toString()) }
     val ip = remember { localIp() ?: "—" }
-    val url = "http://$ip:${settings.port}/?t=$token"
+    val url = "http://$ip:${port.ifBlank { settings.port.toString() }}/?t=$token"
     val a11yOn = RemoteAccessibilityService.instance != null
 
     Column(
@@ -63,6 +67,20 @@ fun SetupScreen() {
         Spacer(Modifier.height(8.dp))
         Text(url, textAlign = TextAlign.Center)
         Spacer(Modifier.height(24.dp))
+
+        OutlinedTextField(
+            value = port,
+            onValueChange = { input ->
+                val digits = input.filter { it.isDigit() }.take(5)
+                port = digits
+                digits.toIntOrNull()?.let { if (it in 1..65535) settings.port = it }
+            },
+            label = { Text("Server port (restart to apply)") },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Spacer(Modifier.height(16.dp))
 
         Button(onClick = { ServerService.start(context) }, modifier = Modifier.fillMaxWidth()) {
             Text("Start server")
