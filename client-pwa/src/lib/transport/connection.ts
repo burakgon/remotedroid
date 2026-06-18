@@ -45,7 +45,7 @@ export function createConnection(opts: ConnectionOptions): Connection {
         const m = decodeServer(data);
         if (m.type === 'welcome') welcome.set(m);
       } catch {
-        /* bozuk kare; yoksay */
+        /* corrupt frame; ignore */
       }
     };
     ws.onclose = () => {
@@ -53,7 +53,7 @@ export function createConnection(opts: ConnectionOptions): Connection {
       if (!closed) schedule();
     };
     ws.onerror = () => {
-      try { ws?.close(); } catch { /* yoksay */ }
+      try { ws?.close(); } catch { /* ignore */ }
     };
   };
 
