@@ -25,7 +25,7 @@ import com.remotedroid.ui.CursorView
 
 /**
  * Accessibility Service that applies commands to the system: cursor overlay + dispatchGesture
- * (tap/scroll), volume, text (ACTION_SET_TEXT / ACTION_IME_ENTER) and global actions.
+ * (tap/drag/scroll), volume, text (ACTION_SET_TEXT / ACTION_IME_ENTER) and global actions.
  * Commands arriving from the server thread are posted to the main thread.
  */
 class RemoteAccessibilityService : AccessibilityService(), CommandExecutor {
@@ -37,6 +37,9 @@ class RemoteAccessibilityService : AccessibilityService(), CommandExecutor {
     private var cursorParams: WindowManager.LayoutParams? = null
     private var cursorSize = 1
     private var cursor = Cursor(0f, 0f, 1, 1)
+    private var dragStroke: GestureDescription.StrokeDescription? = null
+    private var dragX = 0f
+    private var dragY = 0f
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -91,12 +94,9 @@ class RemoteAccessibilityService : AccessibilityService(), CommandExecutor {
             }
             is ClientMessage.Tap -> tap(cursor.x, cursor.y, 50)
             is ClientMessage.LongPress -> tap(cursor.x, cursor.y, 600)
-            is ClientMessage.DragStart -> {}
-            is ClientMessage.DragMove -> {
-                cursor.move(msg.dx.toFloat(), msg.dy.toFloat())
-                moveCursorView()
-            }
-            is ClientMessage.DragEnd -> {}
+            is ClientMessage.DragStart -> dragStart()
+            is ClientMessage.DragMove -> dragMove(msg.dx.toFloat(), msg.dy.toFloat())
+            is ClientMessage.DragEnd -> dragEnd()
             is ClientMessage.Scroll -> scroll(msg.dx.toFloat(), msg.dy.toFloat())
             is ClientMessage.Volume -> adjustVolume(msg.dir)
             is ClientMessage.Mute ->
@@ -119,6 +119,40 @@ class RemoteAccessibilityService : AccessibilityService(), CommandExecutor {
     private fun tap(x: Float, y: Float, durationMs: Long) {
         val path = Path().apply { moveTo(x.clampX(), y.clampY()) }
         val stroke = GestureDescription.StrokeDescription(path, 0, durationMs)
+        dispatchGesture(GestureDescription.Builder().addStroke(stroke).build(), null, null)
+    }
+
+    /** Begins a continuous drag stroke (press) at the current cursor position. */
+    private fun dragStart() {
+        dragX = cursor.x.clampX()
+        dragY = cursor.y.clampY()
+        val path = Path().apply { moveTo(dragX, dragY) }
+        val stroke = GestureDescription.StrokeDescription(path, 0, DRAG_SEGMENT_MS, true)
+        dragStroke = stroke
+        dispatchGesture(GestureDescription.Builder().addStroke(stroke).build(), null, null)
+    }
+
+    /** Extends the in-flight drag stroke to the new cursor position (willContinue = true). */
+    private fun dragMove(dx: Float, dy: Float) {
+        cursor.move(dx, dy)
+        moveCursorView()
+        val prev = dragStroke ?: return
+        val nx = cursor.x.clampX()
+        val ny = cursor.y.clampY()
+        val path = Path().apply { moveTo(dragX, dragY); lineTo(nx, ny) }
+        val stroke = prev.continueStroke(path, 0, DRAG_SEGMENT_MS, true)
+        dragStroke = stroke
+        dragX = nx
+        dragY = ny
+        dispatchGesture(GestureDescription.Builder().addStroke(stroke).build(), null, null)
+    }
+
+    /** Releases the drag with a final segment (willContinue = false). */
+    private fun dragEnd() {
+        val prev = dragStroke ?: return
+        val path = Path().apply { moveTo(dragX, dragY); lineTo(dragX, dragY) }
+        val stroke = prev.continueStroke(path, 0, DRAG_SEGMENT_MS, false)
+        dragStroke = null
         dispatchGesture(GestureDescription.Builder().addStroke(stroke).build(), null, null)
     }
 
@@ -148,6 +182,12 @@ class RemoteAccessibilityService : AccessibilityService(), CommandExecutor {
             putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, value)
         }
         node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)
+        // move the caret to the end of the inserted text
+        val sel = Bundle().apply {
+            putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_START_INT, value.length)
+            putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_END_INT, value.length)
+        }
+        node.performAction(AccessibilityNodeInfo.ACTION_SET_SELECTION, sel)
     }
 
     private fun backspace() {
@@ -189,6 +229,8 @@ class RemoteAccessibilityService : AccessibilityService(), CommandExecutor {
     }
 
     companion object {
+        private const val DRAG_SEGMENT_MS = 40L
+
         @Volatile
         var instance: RemoteAccessibilityService? = null
     }
