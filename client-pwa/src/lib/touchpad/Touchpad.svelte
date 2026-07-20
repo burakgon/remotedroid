@@ -4,8 +4,12 @@
 
   let { onmessage, sensitivity = 1.5 }: { onmessage: (m: ClientMessage) => void; sensitivity?: number } = $props();
 
-  const detector = new GestureDetector({ sensitivity });
+  const detector = new GestureDetector();
   let surface: HTMLDivElement;
+
+  $effect(() => {
+    detector.setSensitivity(sensitivity);
+  });
 
   function emit(gestures: Gesture[]) {
     for (const g of gestures) onmessage(g as ClientMessage);
