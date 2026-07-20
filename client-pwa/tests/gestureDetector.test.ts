@@ -16,6 +16,15 @@ describe('GestureDetector', () => {
     expect(g.onPointerMove(p(1, 110, 95, 16))).toEqual([{ type: 'move', dx: 20, dy: -10 }]);
   });
 
+  it('uses an updated sensitivity for an active gesture', () => {
+    const g = new GestureDetector({ sensitivity: 2 });
+    g.onPointerDown(p(1, 100, 100, 0));
+    expect(g.onPointerMove(p(1, 110, 100, 16))).toEqual([{ type: 'move', dx: 20, dy: 0 }]);
+
+    g.setSensitivity(0.5);
+    expect(g.onPointerMove(p(1, 120, 100, 32))).toEqual([{ type: 'move', dx: 5, dy: 0 }]);
+  });
+
   it('does not emit a tap when the finger moved too far', () => {
     const g = new GestureDetector({ tapMaxMovePx: 8 });
     g.onPointerDown(p(1, 100, 100, 0));

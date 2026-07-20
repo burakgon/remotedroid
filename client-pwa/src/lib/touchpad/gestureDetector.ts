@@ -25,6 +25,10 @@ export class GestureDetector {
     this.opts = { ...DEFAULTS, ...opts };
   }
 
+  setSensitivity(sensitivity: number): void {
+    this.opts.sensitivity = sensitivity;
+  }
+
   onPointerDown(s: PointerSample): Gesture[] {
     this.pointers.set(s.id, s);
     if (this.pointers.size === 1) {
